@@ -48,12 +48,21 @@ struct LaunchData
 struct CallbackTracker
 {
     std::map<Sanitizer_StreamHandle, std::vector<LaunchData>> memoryTrackers;
+    // What is Sanitizer_StreamHandle? Is it a signal to invoke a stream callback function. -by lm
 };
 
 void ModuleLoaded(Sanitizer_ResourceModuleData* pModuleData)
 {
+    CUcontext ctx = 0 // current CUDA context
     // Instrument user code!
-    sanitizerAddPatchesFromFile("MemoryTrackerPatches.fatbin", 0);
+    // Load a module containing patches that can be used by the patching API. -by lm
+    // First Parameter: This API supports the same module formats as the cuModuleLoad function from the CUDA driver API. -by lm
+    sanitizerAddPatchesFromFile("MemoryTrackerPatches.fatbin", ctx);
+    // Set instrumentation points and patches to be applied in a module. -by lm
+    // Parameter1: Instrumentation point for which to insert patches -by lm
+    // Parameter2: CUDA module to instrument -by lm
+    // Parameter3: Name of the device function callback that the inserted patch will call at the instrumented points. 
+    //  This function is expected to be found in code previously loaded by sanitizerAddPatchesFromFile or sanitizerAddPatches.
     sanitizerPatchInstructions(SANITIZER_INSTRUCTION_GLOBAL_MEMORY_ACCESS, pModuleData->module, "MemoryGlobalAccessCallback");
     sanitizerPatchInstructions(SANITIZER_INSTRUCTION_SHARED_MEMORY_ACCESS, pModuleData->module, "MemorySharedAccessCallback");
     sanitizerPatchInstructions(SANITIZER_INSTRUCTION_LOCAL_MEMORY_ACCESS, pModuleData->module, "MemoryLocalAccessCallback");
@@ -172,9 +181,12 @@ void ContextSynchronized(CallbackTracker* pCallbackTracker, CUcontext context)
     }
 }
 
+// callback function of this samples. -by lm
 void MemoryTrackerCallback(
     void* userdata,
+    // TYPE Sanitizer_CallbackDomain: Each domain represents callback points for a group of related API functions or CUDA driver activity. -by lm
     Sanitizer_CallbackDomain domain,
+    // TYPE Sanitizer_CallbackId: Identify the API in specific domain. -by lm
     Sanitizer_CallbackId cbid,
     const void* cbdata)
 {
@@ -236,7 +248,11 @@ int InitializeInjection()
 {
     Sanitizer_SubscriberHandle handle;
     CallbackTracker* tracker = new CallbackTracker();
+    // recording the callback trace -by lm
 
+    // Initialize a callback subscriber with a callback function and user data.
+    // parameter 2: The callback function
+    // parameter 3: A pointer to user data. This data will be passed to the callback function via the userdata parameter
     sanitizerSubscribe(&handle, MemoryTrackerCallback, tracker);
     sanitizerEnableAllDomains(1, handle);
 
