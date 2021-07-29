@@ -32,25 +32,33 @@
 
 #include <iostream>
 
-static void ApiTrackerCallback(
+static void SANITIZERAPI ApiTrackerCallback(
     void* userdata,
-    Sanitizer_CallbackDomain domain,
-    Sanitizer_CallbackId cbid,
-    const void* cbdata)
+    Sanitizer_CallbackDomain domain, // callback Domain
+    Sanitizer_CallbackId cbid, // callback ID
+    const void* cbdata) // cbdata is used to pass data to spcific callback function, type may vary.
 {
+    if (domain == SANITIZER_CB_DOMAIN_DRIVER_API)
+        std::cout<< "Calling a CUDA Driver API..." << std::endl;
     if (domain != SANITIZER_CB_DOMAIN_RUNTIME_API)
         return;
 
+    // The type of cbdata is Sanitizer_CallbackData when domains are equal to SANITIZER_CB_DOMAIN_DRIVER_API or SANITIZER_CB_DOMAIN_RUNTIME_API.
     auto* pCallbackData = (Sanitizer_CallbackData*)cbdata;
 
-    // ignore entry callback
-    if (pCallbackData->callbackSite == SANITIZER_API_ENTER)
-        return;
+    // cuda api enter -by lm
+    if (pCallbackData->callbackSite == SANITIZER_API_ENTER) {
+        std::cout << "API call into " << pCallbackData->functionName << " params address: "
+            << pCallbackData->functionParams << std::endl;
+    }
 
-    auto returnValue = *(cudaError_t*)pCallbackData->functionReturnValue;
-
-    std::cout << "API call to " << pCallbackData->functionName << " (return code "
-              << returnValue << ")" << std::endl;
+    // cuda api exit -by lm
+    if (pCallbackData->callbackSite == SANITIZER_API_EXIT)   
+    {
+        auto returnValue = *(cudaError_t*)pCallbackData->functionReturnValue;
+        std::cout << "API call out " << pCallbackData->functionName << " (return code: "
+            << returnValue << ")" << std::endl;
+    }
 }
 
 int InitializeInjection()
