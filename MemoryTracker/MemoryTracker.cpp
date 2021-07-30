@@ -52,6 +52,9 @@ struct CallbackTracker
 };
 
 void ModuleLoaded(Sanitizer_ResourceModuleData* pModuleData)
+/* TYPE Sanitizer_ResourceModuleData is for CUDA module load and unload.
+*  It is a data passed into a resource callback function as the cbdata argument.
+*/
 {
     CUcontext ctx = 0 // current CUDA context
     // Instrument user code!
@@ -199,6 +202,8 @@ void MemoryTrackerCallback(
             {
                 case SANITIZER_CBID_RESOURCE_MODULE_LOADED:
                 {
+                    // Sanitizer_ResourceModuleData::{context, cubinsize, module, pCubin}
+                    // this point uses the Patch instrumentation.
                     auto* pModuleData = (Sanitizer_ResourceModuleData*)cbdata;
                     ModuleLoaded(pModuleData);
                     break;
