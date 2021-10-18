@@ -39,6 +39,10 @@
 
 // TODO: write in a file instead of stdout
 
+// struct LaunchData is used to store every kernel's memory access data
+// functionName: I think it's kernel's name
+// pTracker: the kernel's memory access data
+// elememts of pTracker: the instruction's memory access data
 struct LaunchData
 {
     std::string functionName;
@@ -48,7 +52,8 @@ struct LaunchData
 struct CallbackTracker
 {
     std::map<Sanitizer_StreamHandle, std::vector<LaunchData>> memoryTrackers;
-    // What is Sanitizer_StreamHandle? Is it a signal to invoke a stream callback function. -by lm
+    // What is Sanitizer_StreamHandle? Is it a signal to invoke a stream callback function. -by lm XXX
+    // of course not. I think it maybe indicates different stream.
 };
 
 void ModuleLoaded(Sanitizer_ResourceModuleData* pModuleData)
@@ -56,7 +61,7 @@ void ModuleLoaded(Sanitizer_ResourceModuleData* pModuleData)
 *  It is a data passed into a resource callback function as the cbdata argument.
 */
 {
-    CUcontext ctx = 0 // current CUDA context
+    CUcontext ctx = 0; // current CUDA context
     // Instrument user code!
     // Load a module containing patches that can be used by the patching API. -by lm
     // First Parameter: This API supports the same module formats as the cuModuleLoad function from the CUDA driver API. -by lm
@@ -86,6 +91,9 @@ void LaunchBegin(
     sanitizerAlloc(context, (void**)&accesses, sizeof(MemoryAccess) * MemAccessDefaultSize);
     sanitizerMemset(accesses, 0, sizeof(MemoryAccess) * MemAccessDefaultSize, stream);
 
+
+    // 1. sizeof直接接指针，为什么这样写
+    // 2. 
     MemoryAccessTracker hTracker;
     hTracker.currentEntry = 0;
     hTracker.maxEntry = MemAccessDefaultSize;
@@ -186,11 +194,13 @@ void ContextSynchronized(CallbackTracker* pCallbackTracker, CUcontext context)
 
 // callback function of this samples. -by lm
 void MemoryTrackerCallback(
+    // user defined data
     void* userdata,
     // TYPE Sanitizer_CallbackDomain: Each domain represents callback points for a group of related API functions or CUDA driver activity. -by lm
     Sanitizer_CallbackDomain domain,
     // TYPE Sanitizer_CallbackId: Identify the API in specific domain. -by lm
     Sanitizer_CallbackId cbid,
+    // useful data struct 
     const void* cbdata)
 {
     auto* callbackTracker = (CallbackTracker*)userdata;
